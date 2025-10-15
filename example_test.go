@@ -37,7 +37,7 @@ func Example() {
 	}
 
 	// Redact and get new value
-	redacted := yaredact.Redact(user, isSensitive, redactValue).(User)
+	redacted := yaredact.Redact(user, isSensitive, redactValue)
 
 	fmt.Printf("%+v\n", redacted)
 	// Output: {Name:John Doe Password:***REDACTED*** Email:john@example.com}
@@ -71,7 +71,7 @@ func Example_structTags() {
 		return v
 	}
 
-	redacted := yaredact.Redact(response, isSensitive, redactValue).(APIResponse)
+	redacted := yaredact.Redact(response, isSensitive, redactValue)
 	fmt.Printf("%+v\n", redacted)
 	// Output: {UserName:alice AccessToken:***REDACTED*** APIKey:***REDACTED***}
 }
@@ -105,7 +105,7 @@ func Example_nestedStructures() {
 		return v
 	}
 
-	redacted := yaredact.Redact(service, isSensitive, redactValue).(Service)
+	redacted := yaredact.Redact(service, isSensitive, redactValue)
 	fmt.Printf("%+v\n", redacted)
 	// Output: {Name:API Service Cred:{Token:***REDACTED*** Secret:***REDACTED***}}
 }
@@ -129,7 +129,7 @@ func Example_maps() {
 		return v
 	}
 
-	redacted := yaredact.Redact(data, isSensitive, redactValue).(map[string]string)
+	redacted := yaredact.Redact[map[string]string](data, isSensitive, redactValue)
 
 	// Print in a predictable order for testing
 	fmt.Printf("email: %s\n", redacted["email"])
@@ -171,7 +171,7 @@ func Example_partialRedaction() {
 		return v
 	}
 
-	redacted := yaredact.Redact(user, isSensitive, partialRedact).(User)
+	redacted := yaredact.Redact(user, isSensitive, partialRedact)
 	fmt.Printf("%+v\n", redacted)
 	// Output: {Name:Jane Smith Password:****d123 APIKey:****f456}
 }
@@ -201,7 +201,7 @@ func Example_hashRedaction() {
 		return v
 	}
 
-	redacted := yaredact.Redact(config, isSensitive, hashRedact).(Config)
+	redacted := yaredact.Redact(config, isSensitive, hashRedact)
 	fmt.Printf("PublicSetting: %s\n", redacted.PublicSetting)
 	fmt.Printf("Secret starts with: sha256:\n")
 	fmt.Printf("Secret is hashed: %t\n", strings.HasPrefix(redacted.Secret, "sha256:"))
@@ -252,7 +252,7 @@ func Example_patternBasedDetection() {
 		return v
 	}
 
-	redacted := yaredact.Redact(creds, isSensitive, redactValue).(Credentials)
+	redacted := yaredact.Redact(creds, isSensitive, redactValue)
 	fmt.Printf("Username: %s\n", redacted.Username)
 	fmt.Printf("Password: %s\n", redacted.Password)
 	fmt.Printf("AccessToken: %s\n", redacted.AccessToken)
@@ -304,7 +304,7 @@ func Example_suffixBasedDetection() {
 		return v
 	}
 
-	redacted := yaredact.Redact(config, isSensitive, redactValue).(APIConfig)
+	redacted := yaredact.Redact(config, isSensitive, redactValue)
 	fmt.Printf("ServiceName: %s\n", redacted.ServiceName)
 	fmt.Printf("DatabaseKey: %s\n", redacted.DatabaseKey)
 	fmt.Printf("AuthToken: %s\n", redacted.AuthToken)

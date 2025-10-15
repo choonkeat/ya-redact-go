@@ -39,7 +39,7 @@ func TestRedact(t *testing.T) {
 			Age:      25,
 		}
 
-		result := Redact(user, isSensitive, redactValue).(User)
+		result := Redact(user, isSensitive, redactValue)
 
 		if result.Name != "John" {
 			t.Errorf("Expected Name to be 'John', got %s", result.Name)
@@ -71,7 +71,7 @@ func TestRedact(t *testing.T) {
 			},
 		}
 
-		result := Redact(service, isSensitive, redactValue).(Service)
+		result := Redact(service, isSensitive, redactValue)
 
 		if result.Name != "API Service" {
 			t.Errorf("Expected Name to be 'API Service', got %s", result.Name)
@@ -91,7 +91,7 @@ func TestRedact(t *testing.T) {
 			"email":    "john@example.com",
 		}
 
-		result := Redact(data, isSensitive, redactValue).(map[string]string)
+		result := Redact[map[string]string](data, isSensitive, redactValue)
 
 		if result["name"] != "John" {
 			t.Errorf("Expected name to be 'John', got %s", result["name"])
@@ -115,7 +115,7 @@ func TestRedact(t *testing.T) {
 			{Name: "Bob", Secret: "bob-secret"},
 		}
 
-		result := Redact(users, isSensitive, redactValue).([]User)
+		result := Redact[[]User](users, isSensitive, redactValue)
 
 		if len(result) != 2 {
 			t.Fatalf("Expected 2 users, got %d", len(result))
@@ -148,7 +148,7 @@ func TestRedact(t *testing.T) {
 			},
 		}
 
-		result := Redact(config, isSensitive, redactValue).(Config)
+		result := Redact(config, isSensitive, redactValue)
 		settings := result.Settings
 
 		if settings["theme"] != "dark" {
@@ -184,7 +184,7 @@ func TestRedact(t *testing.T) {
 			Password: &pass,
 		}
 
-		result := Redact(user, isSensitive, redactValue).(User)
+		result := Redact(user, isSensitive, redactValue)
 
 		if *result.Name != "John" {
 			t.Errorf("Expected Name to be 'John', got %s", *result.Name)
@@ -223,7 +223,7 @@ func TestRedact(t *testing.T) {
 			return lower == "api_key" || strings.Contains(lower, "secret") || strings.Contains(lower, "token")
 		}
 
-		result := Redact(user, customIsSensitive, redactValue).(User)
+		result := Redact(user, customIsSensitive, redactValue)
 
 		if result.Name != "John" {
 			t.Errorf("Expected Name to be 'John', got %s", result.Name)
@@ -260,7 +260,7 @@ func TestRedact(t *testing.T) {
 			return strings.Contains(lower, "privatekey") || lower == "token"
 		}
 
-		result := Redact(config, customIsSensitive, redactValue).(Config)
+		result := Redact(config, customIsSensitive, redactValue)
 
 		if result.PublicKey != "pub123" {
 			t.Errorf("Expected PublicKey to remain unchanged, got %s", result.PublicKey)
@@ -291,7 +291,7 @@ func TestRedact(t *testing.T) {
 			Ignored:  "ignored",
 		}
 
-		result := Redact(req, isSensitive, redactValue).(Request)
+		result := Redact(req, isSensitive, redactValue)
 
 		if result.ID != "123" {
 			t.Errorf("Expected ID to be '123', got %s", result.ID)
@@ -326,7 +326,7 @@ func TestRedact(t *testing.T) {
 			return strings.Contains(lower, "key") || strings.Contains(lower, "password")
 		}
 
-		result := Redact(record, customIsSensitive, redactValue).(Record)
+		result := Redact(record, customIsSensitive, redactValue)
 
 		if result.Username != "alice" {
 			t.Errorf("Expected Username to be 'alice', got %s", result.Username)
@@ -350,7 +350,7 @@ func TestRedact(t *testing.T) {
 			Password: nil,
 		}
 
-		result := Redact(user, isSensitive, redactValue).(User)
+		result := Redact(user, isSensitive, redactValue)
 
 		if result.Name != nil {
 			t.Errorf("Expected Name to remain nil")
