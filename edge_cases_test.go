@@ -12,8 +12,11 @@ func TestEdgeCases(t *testing.T) {
 		return lower == "password" || lower == "secret"
 	}
 
-	redactString := func(s string) string {
-		return "***REDACTED***"
+	redactValue := func(v any) any {
+		if _, ok := v.(string); ok {
+			return "***REDACTED***"
+		}
+		return v
 	}
 
 	t.Run("Empty String Values", func(t *testing.T) {
@@ -27,7 +30,7 @@ func TestEdgeCases(t *testing.T) {
 			Password: "", // Empty password
 		}
 
-		result := Redact(user, isSensitive, redactString).(User)
+		result := Redact(user, isSensitive, redactValue).(User)
 
 		if result.Password != "***REDACTED***" {
 			t.Errorf("Expected empty password to be redacted, got %s", result.Password)
@@ -41,7 +44,7 @@ func TestEdgeCases(t *testing.T) {
 
 		config := Config{Secret: 12345}
 
-		result := Redact(config, isSensitive, redactString).(Config)
+		result := Redact(config, isSensitive, redactValue).(Config)
 
 		// Non-string sensitive fields should remain unchanged
 		if result.Secret != 12345 {
@@ -62,7 +65,7 @@ func TestEdgeCases(t *testing.T) {
 			Secret: Inner{Data: "sensitive-data"},
 		}
 
-		result := Redact(outer, isSensitive, redactString).(Outer)
+		result := Redact(outer, isSensitive, redactValue).(Outer)
 
 		// The struct itself won't be redacted, but should recurse into it
 		if result.Secret.Data != "sensitive-data" {
@@ -76,7 +79,7 @@ func TestEdgeCases(t *testing.T) {
 			2: "value2",
 		}
 
-		result := Redact(data, isSensitive, redactString).(map[int]string)
+		result := Redact(data, isSensitive, redactValue).(map[int]string)
 
 		// Non-string keys should pass through unchanged
 		if result[1] != "value1" || result[2] != "value2" {
@@ -88,7 +91,7 @@ func TestEdgeCases(t *testing.T) {
 		// Test that we don't modify original data
 		users := []string{"password123", "normal"}
 
-		result := Redact(users, isSensitive, redactString).([]string)
+		result := Redact(users, isSensitive, redactValue).([]string)
 
 		// Original should be unchanged
 		if users[0] != "password123" {
@@ -111,7 +114,7 @@ func TestEdgeCases(t *testing.T) {
 			password: "secret123",
 		}
 
-		result := Redact(user, isSensitive, redactString).(User)
+		result := Redact(user, isSensitive, redactValue).(User)
 
 		// Unexported fields get zero values due to reflection limitations
 		// This is expected behavior in Go - reflection can't copy unexported fields
@@ -127,7 +130,7 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("Nil Slice", func(t *testing.T) {
 		var users []string
 
-		result := Redact(users, isSensitive, redactString)
+		result := Redact(users, isSensitive, redactValue)
 
 		// Type assert to get the actual slice
 		resultSlice, ok := result.([]string)
@@ -142,7 +145,7 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("Nil Map", func(t *testing.T) {
 		var data map[string]string
 
-		result := Redact(data, isSensitive, redactString)
+		result := Redact(data, isSensitive, redactValue)
 
 		// Type assert to get the actual map
 		resultMap, ok := result.(map[string]string)
@@ -159,7 +162,7 @@ func TestEdgeCases(t *testing.T) {
 
 		empty := Empty{}
 
-		result := Redact(empty, isSensitive, redactString).(Empty)
+		result := Redact(empty, isSensitive, redactValue).(Empty)
 
 		// Should not panic
 		_ = result
@@ -172,7 +175,7 @@ func TestEdgeCases(t *testing.T) {
 
 		priv := Private{secret: "hidden"}
 
-		result := Redact(priv, isSensitive, redactString).(Private)
+		result := Redact(priv, isSensitive, redactValue).(Private)
 
 		// Unexported fields get zero values due to reflection limitations
 		if result.secret != "" {
@@ -188,7 +191,7 @@ func TestEdgeCases(t *testing.T) {
 		user := User{PASSWORD: "secret123"}
 
 		// isSensitive checks lowercase, so should match
-		result := Redact(user, isSensitive, redactString).(User)
+		result := Redact(user, isSensitive, redactValue).(User)
 
 		if result.PASSWORD != "***REDACTED***" {
 			t.Errorf("Expected case-insensitive match, got %s", result.PASSWORD)

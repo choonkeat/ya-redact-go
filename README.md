@@ -48,12 +48,15 @@ func main() {
     }
 
     // Define how to redact
-    redactString := func(s string) string {
-        return "***REDACTED***"
+    redactValue := func(v any) any {
+        if _, ok := v.(string); ok {
+            return "***REDACTED***"
+        }
+        return v
     }
 
     // Redact and get new value
-    redacted := yaredact.Redact(user, isSensitive, redactString).(User)
+    redacted := yaredact.Redact(user, isSensitive, redactValue).(User)
 
     fmt.Printf("%+v\n", redacted)
     // Output: {Name:John Doe Password:***REDACTED*** Email:john@example.com}
@@ -68,7 +71,7 @@ func main() {
 Redact(
     arg any,
     isSensitive func(string) bool,
-    redactString func(string) string,
+    redactValue func(any) any,
 ) any
 ```
 
@@ -77,7 +80,7 @@ Recursively processes data structures and redacts sensitive fields/keys.
 **Parameters:**
 - `arg`: The value to redact (struct, map, slice, pointer, etc.)
 - `isSensitive`: Function that returns true if a field/key name is sensitive
-- `redactString`: Function that transforms sensitive string values
+- `redactValue`: Function that transforms sensitive values (receives any type, returns any type)
 
 **Returns:** A new value with sensitive data redacted
 
@@ -116,11 +119,14 @@ isSensitive := func(name string) bool {
            strings.Contains(lower, "token")
 }
 
-redactString := func(s string) string {
-    return "***REDACTED***"
+redactValue := func(v any) any {
+    if _, ok := v.(string); ok {
+        return "***REDACTED***"
+    }
+    return v
 }
 
-redacted := yaredact.Redact(response, isSensitive, redactString).(APIResponse)
+redacted := yaredact.Redact(response, isSensitive, redactValue).(APIResponse)
 // Output: {UserName:alice AccessToken:***REDACTED*** APIKey:***REDACTED***}
 ```
 
@@ -147,11 +153,14 @@ isSensitive := func(name string) bool {
     return strings.Contains(lower, "token") || strings.Contains(lower, "secret")
 }
 
-redactString := func(s string) string {
-    return "***REDACTED***"
+redactValue := func(v any) any {
+    if _, ok := v.(string); ok {
+        return "***REDACTED***"
+    }
+    return v
 }
 
-redacted := yaredact.Redact(service, isSensitive, redactString).(Service)
+redacted := yaredact.Redact(service, isSensitive, redactValue).(Service)
 // Output: {Name:API Service Cred:{Token:***REDACTED*** Secret:***REDACTED***}}
 ```
 
@@ -168,11 +177,14 @@ isSensitive := func(name string) bool {
     return strings.ToLower(name) == "password"
 }
 
-redactString := func(s string) string {
-    return "***REDACTED***"
+redactValue := func(v any) any {
+    if _, ok := v.(string); ok {
+        return "***REDACTED***"
+    }
+    return v
 }
 
-redacted := yaredact.Redact(data, isSensitive, redactString).(map[string]string)
+redacted := yaredact.Redact(data, isSensitive, redactValue).(map[string]string)
 // Output: map[email:john@example.com name:John password:***REDACTED***]
 ```
 
@@ -201,11 +213,14 @@ isSensitive := func(name string) bool {
 }
 
 // Partial redaction - show last 4 characters
-partialRedact := func(s string) string {
-    if len(s) <= 4 {
-        return "****"
+partialRedact := func(v any) any {
+    if s, ok := v.(string); ok {
+        if len(s) <= 4 {
+            return "****"
+        }
+        return "****" + s[len(s)-4:]
     }
-    return "****" + s[len(s)-4:]
+    return v
 }
 
 redacted := yaredact.Redact(user, isSensitive, partialRedact).(User)
@@ -233,9 +248,12 @@ isSensitive := func(name string) bool {
     return strings.ToLower(name) == "secret"
 }
 
-hashRedact := func(s string) string {
-    h := sha256.Sum256([]byte(s))
-    return fmt.Sprintf("sha256:%x", h[:8])
+hashRedact := func(v any) any {
+    if s, ok := v.(string); ok {
+        h := sha256.Sum256([]byte(s))
+        return fmt.Sprintf("sha256:%x", h[:8])
+    }
+    return v
 }
 
 redacted := yaredact.Redact(config, isSensitive, hashRedact).(Config)
@@ -281,11 +299,14 @@ isSensitive := func(name string) bool {
     return false
 }
 
-redactString := func(s string) string {
-    return "[REDACTED]"
+redactValue := func(v any) any {
+    if _, ok := v.(string); ok {
+        return "[REDACTED]"
+    }
+    return v
 }
 
-redacted := yaredact.Redact(creds, isSensitive, redactString).(Credentials)
+redacted := yaredact.Redact(creds, isSensitive, redactValue).(Credentials)
 // Output: Username:admin, Password:[REDACTED], AccessToken:[REDACTED],
 //         RefreshToken:[REDACTED], PublicKey:pub_key, PrivateKey:[REDACTED],
 //         SessionCookie:[REDACTED]
@@ -321,11 +342,14 @@ isSensitive := func(name string) bool {
            strings.Contains(lower, "signature")
 }
 
-redactString := func(s string) string {
-    return "***"
+redactValue := func(v any) any {
+    if _, ok := v.(string); ok {
+        return "***"
+    }
+    return v
 }
 
-redacted := yaredact.Redact(config, isSensitive, redactString).(APIConfig)
+redacted := yaredact.Redact(config, isSensitive, redactValue).(APIConfig)
 // Output: {ServiceName:my-service DatabaseKey:*** AuthToken:*** CacheTimeout:300 SecretSignature:***}
 ```
 

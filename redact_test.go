@@ -12,12 +12,15 @@ func TestRedact(t *testing.T) {
 		return lower == "password" || lower == "secret" || lower == "apikey" || lower == "token"
 	}
 
-	redactString := func(s string) string {
-		return "***REDACTED***"
+	redactValue := func(v any) any {
+		if _, ok := v.(string); ok {
+			return "***REDACTED***"
+		}
+		return v
 	}
 
 	t.Run("Standalone String", func(t *testing.T) {
-		result := Redact("sensitive data", isSensitive, redactString)
+		result := Redact("sensitive data", isSensitive, redactValue)
 		if result != "sensitive data" {
 			t.Errorf("Expected standalone string to remain unchanged, got %v", result)
 		}
@@ -36,7 +39,7 @@ func TestRedact(t *testing.T) {
 			Age:      25,
 		}
 
-		result := Redact(user, isSensitive, redactString).(User)
+		result := Redact(user, isSensitive, redactValue).(User)
 
 		if result.Name != "John" {
 			t.Errorf("Expected Name to be 'John', got %s", result.Name)
@@ -68,7 +71,7 @@ func TestRedact(t *testing.T) {
 			},
 		}
 
-		result := Redact(service, isSensitive, redactString).(Service)
+		result := Redact(service, isSensitive, redactValue).(Service)
 
 		if result.Name != "API Service" {
 			t.Errorf("Expected Name to be 'API Service', got %s", result.Name)
@@ -88,7 +91,7 @@ func TestRedact(t *testing.T) {
 			"email":    "john@example.com",
 		}
 
-		result := Redact(data, isSensitive, redactString).(map[string]string)
+		result := Redact(data, isSensitive, redactValue).(map[string]string)
 
 		if result["name"] != "John" {
 			t.Errorf("Expected name to be 'John', got %s", result["name"])
@@ -112,7 +115,7 @@ func TestRedact(t *testing.T) {
 			{Name: "Bob", Secret: "bob-secret"},
 		}
 
-		result := Redact(users, isSensitive, redactString).([]User)
+		result := Redact(users, isSensitive, redactValue).([]User)
 
 		if len(result) != 2 {
 			t.Fatalf("Expected 2 users, got %d", len(result))
@@ -145,7 +148,7 @@ func TestRedact(t *testing.T) {
 			},
 		}
 
-		result := Redact(config, isSensitive, redactString).(Config)
+		result := Redact(config, isSensitive, redactValue).(Config)
 		settings := result.Settings
 
 		if settings["theme"] != "dark" {
@@ -181,7 +184,7 @@ func TestRedact(t *testing.T) {
 			Password: &pass,
 		}
 
-		result := Redact(user, isSensitive, redactString).(User)
+		result := Redact(user, isSensitive, redactValue).(User)
 
 		if *result.Name != "John" {
 			t.Errorf("Expected Name to be 'John', got %s", *result.Name)
@@ -220,7 +223,7 @@ func TestRedact(t *testing.T) {
 			return lower == "api_key" || strings.Contains(lower, "secret") || strings.Contains(lower, "token")
 		}
 
-		result := Redact(user, customIsSensitive, redactString).(User)
+		result := Redact(user, customIsSensitive, redactValue).(User)
 
 		if result.Name != "John" {
 			t.Errorf("Expected Name to be 'John', got %s", result.Name)
@@ -257,7 +260,7 @@ func TestRedact(t *testing.T) {
 			return strings.Contains(lower, "privatekey") || lower == "token"
 		}
 
-		result := Redact(config, customIsSensitive, redactString).(Config)
+		result := Redact(config, customIsSensitive, redactValue).(Config)
 
 		if result.PublicKey != "pub123" {
 			t.Errorf("Expected PublicKey to remain unchanged, got %s", result.PublicKey)
@@ -288,7 +291,7 @@ func TestRedact(t *testing.T) {
 			Ignored:  "ignored",
 		}
 
-		result := Redact(req, isSensitive, redactString).(Request)
+		result := Redact(req, isSensitive, redactValue).(Request)
 
 		if result.ID != "123" {
 			t.Errorf("Expected ID to be '123', got %s", result.ID)
@@ -323,7 +326,7 @@ func TestRedact(t *testing.T) {
 			return strings.Contains(lower, "key") || strings.Contains(lower, "password")
 		}
 
-		result := Redact(record, customIsSensitive, redactString).(Record)
+		result := Redact(record, customIsSensitive, redactValue).(Record)
 
 		if result.Username != "alice" {
 			t.Errorf("Expected Username to be 'alice', got %s", result.Username)
@@ -347,7 +350,7 @@ func TestRedact(t *testing.T) {
 			Password: nil,
 		}
 
-		result := Redact(user, isSensitive, redactString).(User)
+		result := Redact(user, isSensitive, redactValue).(User)
 
 		if result.Name != nil {
 			t.Errorf("Expected Name to remain nil")

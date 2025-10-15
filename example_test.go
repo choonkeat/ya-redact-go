@@ -29,12 +29,15 @@ func Example() {
 	}
 
 	// Define how to redact
-	redactString := func(s string) string {
-		return "***REDACTED***"
+	redactValue := func(v any) any {
+		if _, ok := v.(string); ok {
+			return "***REDACTED***"
+		}
+		return v
 	}
 
 	// Redact and get new value
-	redacted := yaredact.Redact(user, isSensitive, redactString).(User)
+	redacted := yaredact.Redact(user, isSensitive, redactValue).(User)
 
 	fmt.Printf("%+v\n", redacted)
 	// Output: {Name:John Doe Password:***REDACTED*** Email:john@example.com}
@@ -61,11 +64,14 @@ func Example_structTags() {
 			strings.Contains(lower, "token")
 	}
 
-	redactString := func(s string) string {
-		return "***REDACTED***"
+	redactValue := func(v any) any {
+		if _, ok := v.(string); ok {
+			return "***REDACTED***"
+		}
+		return v
 	}
 
-	redacted := yaredact.Redact(response, isSensitive, redactString).(APIResponse)
+	redacted := yaredact.Redact(response, isSensitive, redactValue).(APIResponse)
 	fmt.Printf("%+v\n", redacted)
 	// Output: {UserName:alice AccessToken:***REDACTED*** APIKey:***REDACTED***}
 }
@@ -92,11 +98,14 @@ func Example_nestedStructures() {
 		return strings.Contains(lower, "token") || strings.Contains(lower, "secret")
 	}
 
-	redactString := func(s string) string {
-		return "***REDACTED***"
+	redactValue := func(v any) any {
+		if _, ok := v.(string); ok {
+			return "***REDACTED***"
+		}
+		return v
 	}
 
-	redacted := yaredact.Redact(service, isSensitive, redactString).(Service)
+	redacted := yaredact.Redact(service, isSensitive, redactValue).(Service)
 	fmt.Printf("%+v\n", redacted)
 	// Output: {Name:API Service Cred:{Token:***REDACTED*** Secret:***REDACTED***}}
 }
@@ -113,11 +122,14 @@ func Example_maps() {
 		return strings.ToLower(name) == "password"
 	}
 
-	redactString := func(s string) string {
-		return "***REDACTED***"
+	redactValue := func(v any) any {
+		if _, ok := v.(string); ok {
+			return "***REDACTED***"
+		}
+		return v
 	}
 
-	redacted := yaredact.Redact(data, isSensitive, redactString).(map[string]string)
+	redacted := yaredact.Redact(data, isSensitive, redactValue).(map[string]string)
 
 	// Print in a predictable order for testing
 	fmt.Printf("email: %s\n", redacted["email"])
@@ -149,11 +161,14 @@ func Example_partialRedaction() {
 	}
 
 	// Partial redaction - show last 4 characters
-	partialRedact := func(s string) string {
-		if len(s) <= 4 {
-			return "****"
+	partialRedact := func(v any) any {
+		if s, ok := v.(string); ok {
+			if len(s) <= 4 {
+				return "****"
+			}
+			return "****" + s[len(s)-4:]
 		}
-		return "****" + s[len(s)-4:]
+		return v
 	}
 
 	redacted := yaredact.Redact(user, isSensitive, partialRedact).(User)
@@ -178,9 +193,12 @@ func Example_hashRedaction() {
 	}
 
 	// Hash-based redaction
-	hashRedact := func(s string) string {
-		h := sha256.Sum256([]byte(s))
-		return fmt.Sprintf("sha256:%x", h[:8])
+	hashRedact := func(v any) any {
+		if s, ok := v.(string); ok {
+			h := sha256.Sum256([]byte(s))
+			return fmt.Sprintf("sha256:%x", h[:8])
+		}
+		return v
 	}
 
 	redacted := yaredact.Redact(config, isSensitive, hashRedact).(Config)
@@ -227,11 +245,14 @@ func Example_patternBasedDetection() {
 		return false
 	}
 
-	redactString := func(s string) string {
-		return "[REDACTED]"
+	redactValue := func(v any) any {
+		if _, ok := v.(string); ok {
+			return "[REDACTED]"
+		}
+		return v
 	}
 
-	redacted := yaredact.Redact(creds, isSensitive, redactString).(Credentials)
+	redacted := yaredact.Redact(creds, isSensitive, redactValue).(Credentials)
 	fmt.Printf("Username: %s\n", redacted.Username)
 	fmt.Printf("Password: %s\n", redacted.Password)
 	fmt.Printf("AccessToken: %s\n", redacted.AccessToken)
@@ -276,11 +297,14 @@ func Example_suffixBasedDetection() {
 			strings.Contains(lower, "signature")
 	}
 
-	redactString := func(s string) string {
-		return "***"
+	redactValue := func(v any) any {
+		if _, ok := v.(string); ok {
+			return "***"
+		}
+		return v
 	}
 
-	redacted := yaredact.Redact(config, isSensitive, redactString).(APIConfig)
+	redacted := yaredact.Redact(config, isSensitive, redactValue).(APIConfig)
 	fmt.Printf("ServiceName: %s\n", redacted.ServiceName)
 	fmt.Printf("DatabaseKey: %s\n", redacted.DatabaseKey)
 	fmt.Printf("AuthToken: %s\n", redacted.AuthToken)

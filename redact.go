@@ -11,13 +11,15 @@ import (
 // - For maps: redacts values of keys marked as sensitive
 // - For slices/arrays: recursively processes each element
 // - For pointers: follows the pointer and processes the underlying value
-func Redact(arg any, isSensitive func(string) bool, redactString func(string) string) any {
-	if arg == nil {
-		return nil
+func Redact[T any](arg T, isSensitive func(string) bool, redactValue func(any) any) T {
+	var zero T
+	if reflect.ValueOf(arg).Kind() == reflect.Invalid {
+		return zero
 	}
 
 	v := reflect.ValueOf(arg)
-	return redactValue(v, isSensitive, redactString).Interface()
+	result := redactReflectValue(v, isSensitive, redactValue).Interface()
+	return result.(T)
 }
 
 // isFieldSensitive checks if a struct field should be considered sensitive
@@ -51,7 +53,7 @@ func isFieldSensitive(field reflect.StructField, isSensitive func(string) bool) 
 	return false
 }
 
-func redactValue(v reflect.Value, isSensitive func(string) bool, redactString func(string) string) reflect.Value {
+func redactReflectValue(v reflect.Value, isSensitive func(string) bool, redactValue func(any) any) reflect.Value {
 	if !v.IsValid() {
 		return v
 	}
@@ -63,7 +65,7 @@ func redactValue(v reflect.Value, isSensitive func(string) bool, redactString fu
 		}
 		// Create a new pointer to the redacted value
 		elem := v.Elem()
-		redacted := redactValue(elem, isSensitive, redactString)
+		redacted := redactReflectValue(elem, isSensitive, redactValue)
 		ptr := reflect.New(redacted.Type())
 		ptr.Elem().Set(redacted)
 		return ptr
@@ -74,7 +76,7 @@ func redactValue(v reflect.Value, isSensitive func(string) bool, redactString fu
 		}
 		// Redact the underlying value and wrap it back in an interface
 		elem := v.Elem()
-		redacted := redactValue(elem, isSensitive, redactString)
+		redacted := redactReflectValue(elem, isSensitive, redactValue)
 		return redacted
 
 	case reflect.Struct:
@@ -89,24 +91,45 @@ func redactValue(v reflect.Value, isSensitive func(string) bool, redactString fu
 				// Check if field is sensitive by name or by struct tags
 				fieldIsSensitive := isFieldSensitive(fieldType, isSensitive)
 
-				if fieldIsSensitive {
-					// If field is sensitive and is a string, redact it
-					if field.Kind() == reflect.String {
-						result.Field(i).SetString(redactString(field.String()))
-					} else if field.Kind() == reflect.Ptr && !field.IsNil() && field.Elem().Kind() == reflect.String {
-						// If field is a pointer to a string, redact the string value
-						redactedStr := redactString(field.Elem().String())
-						ptr := reflect.New(field.Elem().Type())
-						ptr.Elem().SetString(redactedStr)
-						result.Field(i).Set(ptr)
+				if fieldIsSensitive && field.CanInterface() {
+					// Field is sensitive - apply redaction callback
+					// Special handling for pointer types: dereference, redact, then re-wrap
+					if field.Kind() == reflect.Ptr && !field.IsNil() {
+						elem := field.Elem()
+						if elem.CanInterface() {
+							originalValue := elem.Interface()
+							redactedValue := redactValue(originalValue)
+							redactedReflect := reflect.ValueOf(redactedValue)
+
+							// Create a new pointer to the redacted value
+							if redactedReflect.Type().AssignableTo(elem.Type()) {
+								ptr := reflect.New(redactedReflect.Type())
+								ptr.Elem().Set(redactedReflect)
+								result.Field(i).Set(ptr)
+							} else {
+								// Type mismatch - recursively process instead
+								redacted := redactReflectValue(field, isSensitive, redactValue)
+								result.Field(i).Set(redacted)
+							}
+						}
 					} else {
-						// For non-string sensitive fields, recursively redact
-						redacted := redactValue(field, isSensitive, redactString)
-						result.Field(i).Set(redacted)
+						// Non-pointer sensitive field
+						originalValue := field.Interface()
+						redactedValue := redactValue(originalValue)
+
+						// Set the redacted value back
+						redactedReflect := reflect.ValueOf(redactedValue)
+						if redactedReflect.Type().AssignableTo(field.Type()) {
+							result.Field(i).Set(redactedReflect)
+						} else {
+							// Type mismatch - recursively process instead
+							redacted := redactReflectValue(field, isSensitive, redactValue)
+							result.Field(i).Set(redacted)
+						}
 					}
 				} else {
 					// For non-sensitive fields, recursively process
-					redacted := redactValue(field, isSensitive, redactString)
+					redacted := redactReflectValue(field, isSensitive, redactValue)
 					result.Field(i).Set(redacted)
 				}
 			}
@@ -133,26 +156,14 @@ func redactValue(v reflect.Value, isSensitive func(string) bool, redactString fu
 				}
 			}
 
-			if keyStr != "" && isSensitive(keyStr) {
+			if keyStr != "" && isSensitive(keyStr) && value.CanInterface() {
 				// Redact the value for sensitive keys
-				if value.Kind() == reflect.String {
-					result.SetMapIndex(key, reflect.ValueOf(redactString(value.String())))
-				} else if value.Kind() == reflect.Interface && !value.IsNil() {
-					// Handle interface{} values
-					elem := value.Elem()
-					if elem.Kind() == reflect.String {
-						result.SetMapIndex(key, reflect.ValueOf(redactString(elem.String())))
-					} else {
-						redacted := redactValue(value, isSensitive, redactString)
-						result.SetMapIndex(key, redacted)
-					}
-				} else {
-					redacted := redactValue(value, isSensitive, redactString)
-					result.SetMapIndex(key, redacted)
-				}
+				originalValue := value.Interface()
+				redactedValue := redactValue(originalValue)
+				result.SetMapIndex(key, reflect.ValueOf(redactedValue))
 			} else {
 				// For non-sensitive keys, recursively process the value
-				redacted := redactValue(value, isSensitive, redactString)
+				redacted := redactReflectValue(value, isSensitive, redactValue)
 				result.SetMapIndex(key, redacted)
 			}
 		}
@@ -166,7 +177,7 @@ func redactValue(v reflect.Value, isSensitive func(string) bool, redactString fu
 		result := reflect.MakeSlice(v.Type(), v.Len(), v.Cap())
 		for i := 0; i < v.Len(); i++ {
 			elem := v.Index(i)
-			redacted := redactValue(elem, isSensitive, redactString)
+			redacted := redactReflectValue(elem, isSensitive, redactValue)
 			result.Index(i).Set(redacted)
 		}
 		return result
@@ -176,7 +187,7 @@ func redactValue(v reflect.Value, isSensitive func(string) bool, redactString fu
 		result := reflect.New(v.Type()).Elem()
 		for i := 0; i < v.Len(); i++ {
 			elem := v.Index(i)
-			redacted := redactValue(elem, isSensitive, redactString)
+			redacted := redactReflectValue(elem, isSensitive, redactValue)
 			result.Index(i).Set(redacted)
 		}
 		return result
