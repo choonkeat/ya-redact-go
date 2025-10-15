@@ -62,7 +62,15 @@ func main() {
 
 ## API
 
-### `Redact(arg any, isSensitive func(string) bool, redactString func(string) string) any`
+### Redact
+
+```go
+Redact(
+    arg any,
+    isSensitive func(string) bool,
+    redactString func(string) string,
+) any
+```
 
 Recursively processes data structures and redacts sensitive fields/keys.
 
